@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const bodyParser = require('body-parser');
 const util = require('util');
 const lastfmapi = require('lastfmapi');
@@ -11,6 +12,7 @@ const lfm = new lastfmapi({
 });
 
 app.use(bodyParser.json());
+app.use(cors());
 
 const database = {
   users: [
@@ -81,17 +83,19 @@ app.get('/profile/:id', (req, res) => {
   }
 });
 
-app.get('/data/:id/pagecount', (req, res) => {
-  const { id } = req.params;
+const userTopTracks = util.promisify(lfm.user.getTopTracks).bind(lfm.user);
+
+app.get('/data/:id/:range/pagecount', (req, res) => {
+  const { id, range } = req.params;
   const lfmParams = {
     'user': id,
-    'period': '1month',
+    'period': range,
     'limit': 200
   };
   userTopTracks(lfmParams)
   .then(tracks => {
     const numPages = tracks['@attr'].totalPages;
-    res.json(numPages);
+    res.json({"pages": numPages});
   })
   .catch(err => {
     res.status(500).json('Unable to find user information');
@@ -106,17 +110,29 @@ const pushTrack = (track) => {
     image: track.image[0]['#text'],
     name: track.name
   };
-  // console.log(trackInfo);
+  console.log(trackInfo);
   trackdb.tracks.push(trackInfo);
 };
 
-const wait = ms => new Promise(
-  (resolve, reject) => setTimeout(resolve, ms)
-);
+app.post('/data/:id/:range/:page', (req, res) => {
+  const { id, range, page } = req.params;
+  const lfmParams = {
+    'user': id,
+    'period': range,
+    'limit': 200,
+    'page': page
+  };
+  userTopTracks(lfmParams)
+  .then(tracks => {
+    tracks.track.forEach(pushTrack);
+    res.json('Success');
+  })
+  .catch(err => {
+    res.status(500).json('Unable to find user information');
+  })
+});
 
-const userTopTracks = util.promisify(lfm.user.getTopTracks).bind(lfm.user);
-
-const getRestOfTracks = async (params, numPages) => {
+/*const getRestOfTracks = async (params, numPages) => {
   const pages = [];
   for (let i = 1; i < numPages; i++) {
     pages.push(i + 1);
@@ -128,10 +144,10 @@ const getRestOfTracks = async (params, numPages) => {
     const tracks = await userTopTracks(params);
     tracks.track.forEach(pushTrack);
   }
-}
+}*/
 
 // http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=ej_sim&period=7day&limit=200&api_key=7ac5e0e16558499056588c698ae15807&format=json
-app.post('/data/:id', (req, res) => {
+/*app.post('/data/:id', (req, res) => {
   const { id } = req.params;
   const lfmParams = {
     'user': id,
@@ -151,7 +167,7 @@ app.post('/data/:id', (req, res) => {
     console.log(err);
     res.status(500).json('could not load database');
   })
-});
+});*/
 
 app.get('/tracks/:id', (req, res) => {
   res.send(trackdb);
