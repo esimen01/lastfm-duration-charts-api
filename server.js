@@ -102,16 +102,16 @@ app.get('/data/:id/:range/pagecount', (req, res) => {
   })
 });
 
-const pushTrack = (track) => {
+const trackInfo = (track) => {
+  const totalDuration = track.duration * track.playcount;
   const trackInfo = {
-    duration: track.duration,
+    time: totalDuration.toString(),
     count: track.playcount,
     artist: track.artist.name,
     image: track.image[0]['#text'],
     name: track.name
   };
-  console.log(trackInfo);
-  trackdb.tracks.push(trackInfo);
+  return trackInfo;
 };
 
 app.post('/data/:id/:range/:page', (req, res) => {
@@ -124,50 +124,15 @@ app.post('/data/:id/:range/:page', (req, res) => {
   };
   userTopTracks(lfmParams)
   .then(tracks => {
-    tracks.track.forEach(pushTrack);
-    res.json('Success');
+    tracks.track.forEach(track => {
+      trackdb.tracks.push(trackInfo(track))
+    });
+    res.status(200).json('Success');
   })
   .catch(err => {
     res.status(500).json('Unable to find user information');
   })
 });
-
-/*const getRestOfTracks = async (params, numPages) => {
-  const pages = [];
-  for (let i = 1; i < numPages; i++) {
-    pages.push(i + 1);
-  }
-  for (const page of pages) {
-    params.page = page;
-    await wait(1000);
-    console.log('getting page ', page);
-    const tracks = await userTopTracks(params);
-    tracks.track.forEach(pushTrack);
-  }
-}*/
-
-// http://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=ej_sim&period=7day&limit=200&api_key=7ac5e0e16558499056588c698ae15807&format=json
-/*app.post('/data/:id', (req, res) => {
-  const { id } = req.params;
-  const lfmParams = {
-    'user': id,
-    'period': '1month',
-    'limit': 200,
-    'page': 1
-  };
-  console.log(lfmParams);
-  userTopTracks(lfmParams)
-  .then(tracks => {
-    tracks.track.forEach(pushTrack);
-    const numPages = tracks['@attr'].totalPages;
-    getRestOfTracks(lfmParams, 7)
-    .then(res.json('success'))
-  })
-  .catch(err => {
-    console.log(err);
-    res.status(500).json('could not load database');
-  })
-});*/
 
 app.get('/tracks/:id', (req, res) => {
   res.send(trackdb);
